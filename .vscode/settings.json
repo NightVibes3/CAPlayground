@@ -1,0 +1,13 @@
+{
+    "css.lint.unknownAtRules": "ignore",
+    "scss.lint.unknownAtRules": "ignore",
+    "less.lint.unknownAtRules": "ignore",
+    "edge-tools.css.lint.inlineStyles": "ignore",
+    "cSpell.words": [
+        "caplayground",
+        "cornerradius",
+        "posthog",
+        "quicktime",
+        "zposition"
+    ]
+}

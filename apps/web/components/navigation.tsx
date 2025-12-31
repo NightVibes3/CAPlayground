@@ -201,7 +201,6 @@ export function Navigation() {
               className="min-[1045px]:hidden p-3 rounded-lg hover:bg-muted transition-all justify-self-end touch-target-min ios-active-scale"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               aria-label="Toggle menu"
-              /* eslint-disable-next-line */
               aria-expanded={isMenuOpen}
             >
               {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -288,9 +287,9 @@ export function Navigation() {
                   }}
                 >
                   <span className="text-[17px] font-medium">
-                    {theme === "dark" ? "Light Mode" : "Dark Mode"}
+                    {mounted && theme === "dark" ? "Light Mode" : "Dark Mode"}
                   </span>
-                  {theme === "dark" ? (
+                  {mounted && theme === "dark" ? (
                     <Sun className="h-5 w-5 text-orange-400" />
                   ) : (
                     <Moon className="h-5 w-5 text-ios-blue" />

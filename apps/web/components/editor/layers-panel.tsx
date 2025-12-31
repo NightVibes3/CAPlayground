@@ -140,7 +140,8 @@ export function LayersPanel() {
           <div
             className="absolute left-0 right-0 top-0 h-0.5 bg-ios-blue z-10 pointer-events-none ml-[calc(8px+var(--layer-depth,0)*16px)]"
           />
-        )}
+        )
+        }
         <div
           className={cn(
             "ios-list-item cursor-pointer pl-[calc(16px+var(--layer-depth,0)*16px)]",
@@ -287,12 +288,14 @@ export function LayersPanel() {
             )}
           </div>
         </div>
-        {showDropLineAfter && (
-          <div
-            className="absolute left-0 right-0 bottom-0 h-0.5 bg-accent z-10 pointer-events-none ml-[calc(8px+var(--layer-depth,0)*16px)]"
-          />
-        )}
-      </div>
+        {
+          showDropLineAfter && (
+            <div
+              className="absolute left-0 right-0 bottom-0 h-0.5 bg-accent z-10 pointer-events-none ml-[calc(8px+var(--layer-depth,0)*16px)]"
+            />
+          )
+        }
+      </div >
     );
     if (hasChildren && !isCollapsed) {
       return (
