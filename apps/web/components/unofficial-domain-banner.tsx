@@ -42,7 +42,7 @@ export function UnofficialDomainBanner() {
   };
 
   return (
-    <div className="sticky top-0 z-[100]">
+    <div className="sticky top-0 z-100">
       <Alert variant="destructive" className="rounded-none border-0">
         <TriangleAlert />
         <AlertTitle>Unofficial domain</AlertTitle>
