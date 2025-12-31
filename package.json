@@ -1,0 +1,13 @@
+{
+    "name": "caplayground-monorepo",
+    "private": true,
+    "workspaces": [
+        "apps/*"
+    ],
+    "scripts": {
+        "build": "bun --cwd apps/web build",
+        "dev": "bun --cwd apps/web dev",
+        "start": "bun --cwd apps/web start",
+        "lint": "bun --cwd apps/web lint"
+    }
+}
