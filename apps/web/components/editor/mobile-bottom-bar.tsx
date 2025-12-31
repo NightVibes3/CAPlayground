@@ -92,7 +92,7 @@ export function MobileBottomBar({
   }, []);
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 px-4 pb-[env(safe-area-inset-bottom,16px)] pointer-events-none flex justify-center">
+    <div className="fixed bottom-0 left-0 right-0 z-50 px-4 pb-[calc(env(safe-area-inset-bottom,16px)+12px)] pointer-events-none flex justify-center">
       <div
         ref={containerRef}
         className="w-full max-w-[440px] h-16 ios-glass border border-border/50 shadow-2xl rounded-[32px] px-6 flex items-center justify-between backdrop-blur-2xl pointer-events-auto"

@@ -58,7 +58,10 @@ function SyncWithStateRenderer({
 export default function VideoRenderer({
   layer: video,
 }: VideoRendererProps) {
+  // ALL HOOKS MUST BE AT THE TOP - BEFORE ANY CONDITIONAL RETURNS
   const { currentTime } = useTimeline();
+  const mainImgRef = useRef<HTMLImageElement>(null);
+  
   const frameCount = video.frameCount || 0;
   const fps = video.fps || 30;
   const duration = video.duration || (frameCount / fps);
@@ -72,6 +75,13 @@ export default function VideoRenderer({
     skip: frameCount <= 1,
   });
 
+  useEffect(() => {
+    if (mainImgRef.current) {
+      mainImgRef.current.style.borderRadius = `${video.cornerRadius}px`;
+    }
+  }, [video.cornerRadius]);
+
+  // NOW safe to do conditional returns
   if (frameCount <= 1) return null;
 
   if (video.syncWWithState) {
@@ -87,21 +97,15 @@ export default function VideoRenderer({
 
   const frameIndex = Math.floor(localT * fps) % frameCount;
   const src = frames.get(frameIndex);
-  const mainImgRef = useRef<HTMLImageElement>(null);
-
-  useEffect(() => {
-    if (mainImgRef.current) {
-      mainImgRef.current.style.borderRadius = `${video.cornerRadius}px`;
-    }
-  }, [video.cornerRadius]);
 
   if (loading || !src) return null;
+  
   return (
     <img
       ref={mainImgRef}
       src={src}
       alt={video.name}
-      className="renderer-video-img"
+      className="w-full h-full object-cover renderer-video-img"
       draggable={false}
     />
   );
