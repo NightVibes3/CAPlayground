@@ -201,7 +201,6 @@ export function Navigation() {
               className="min-[1045px]:hidden p-3 rounded-lg hover:bg-muted transition-all justify-self-end touch-target-min ios-active-scale"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               aria-label="Toggle menu"
-              aria-expanded={isMenuOpen}
             >
               {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>

@@ -13,6 +13,247 @@ import { isChromiumBrowser } from "@/lib/browser";
 import { cn } from "@/lib/utils";
 import VideoLayerDialog from "./VideoLayerDialog";
 
+function LayerRow({
+  layer: l,
+  depth,
+  selectedId,
+  dragOverId,
+  dropPosition,
+  isHidden,
+  isSelectMode,
+  isProtected,
+  isChecked,
+  hasChildren,
+  isCollapsed,
+  renderingName,
+  editingId,
+  editingName,
+  isChromium,
+  onToggleCollapse,
+  onStartRename,
+  onCommitRename,
+  onCancelRename,
+  onToggleMultiSelect,
+  onSelectLayer,
+  onToggleLayerVisibility,
+  onDuplicateLayer,
+  onDeleteLayer,
+  setEditingName,
+  setDragOverId,
+  setDropPosition,
+  moveLayer,
+  children
+}: {
+  layer: AnyLayer;
+  depth: number;
+  selectedId: string | null;
+  dragOverId: string | null;
+  dropPosition: 'before' | 'after' | 'into' | null;
+  isHidden: boolean;
+  isSelectMode: boolean;
+  isProtected: boolean;
+  isChecked: boolean;
+  hasChildren: boolean;
+  isCollapsed: boolean;
+  renderingName: string;
+  editingId: string | null;
+  editingName: string;
+  isChromium: boolean;
+  onToggleCollapse: (id: string, e: React.MouseEvent) => void;
+  onStartRename: (l: AnyLayer) => void;
+  onCommitRename: () => void;
+  onCancelRename: () => void;
+  onToggleMultiSelect: (id: string) => void;
+  onSelectLayer: (id: string | null) => void;
+  onToggleLayerVisibility: (id: string) => void;
+  onDuplicateLayer: (id: string) => void;
+  onDeleteLayer: (id: string) => void;
+  setEditingName: (name: string) => void;
+  setDragOverId: (id: string | null) => void;
+  setDropPosition: (pos: 'before' | 'after' | 'into' | null) => void;
+  moveLayer: (src: string, target: string | null, pos?: 'before' | 'after' | 'into') => void;
+  children?: React.ReactNode;
+}) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (rowRef.current) {
+      rowRef.current.style.setProperty('--layer-depth', String(depth));
+    }
+  }, [depth]);
+
+  const showDropLineBefore = dragOverId === l.id && dropPosition === 'before';
+  const showDropLineAfter = dragOverId === l.id && dropPosition === 'after';
+
+  return (
+    <div
+      key={l.id}
+      ref={rowRef}
+      className="renderer-layer-row"
+    >
+      {showDropLineBefore && (
+        <div
+          className="absolute left-0 right-0 top-0 h-0.5 bg-ios-blue z-10 pointer-events-none ml-[calc(8px+var(--layer-depth,0)*16px)]"
+        />
+      )}
+      <div
+        ref={innerRef}
+        className={cn(
+          "ios-list-item cursor-pointer pl-[calc(16px+var(--layer-depth,0)*16px)]",
+          selectedId === l.id && !dragOverId ? "bg-muted" : "bg-card",
+          dragOverId === l.id && dropPosition === 'into' ? "bg-accent/30" : "",
+          isHidden && "opacity-50"
+        )}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (isSelectMode) onToggleMultiSelect(l.id);
+          else onSelectLayer(l.id);
+        }}
+        onDoubleClick={() => onStartRename(l)}
+        draggable
+        onDragStart={(e) => {
+          e.stopPropagation();
+          e.dataTransfer.setData('text/cap-layer-id', l.id);
+          try { e.dataTransfer.effectAllowed = 'move'; } catch { }
+        }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          const rect = e.currentTarget.getBoundingClientRect();
+          const mouseY = e.clientY;
+          const relativeY = mouseY - rect.top;
+          const isBefore = relativeY < rect.height / 4;
+          const isAfter = relativeY > rect.height * 3 / 4;
+          const position = isBefore ? 'before' : isAfter ? 'after' : 'into';
+          setDragOverId(l.id);
+          setDropPosition(position);
+        }}
+        onDragLeave={() => {
+          setDragOverId(null);
+          setDropPosition(null);
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const src = e.dataTransfer.getData('text/cap-layer-id');
+          const position = dropPosition;
+          setDragOverId(null);
+          setDropPosition(null);
+          if (!src || src === l.id) return;
+          if (position) moveLayer(src, l.id, position);
+        }}
+      >
+        <div className="truncate flex-1 min-w-0 flex items-center gap-1">
+          {isSelectMode && !isProtected ? (
+            <button
+              className={`shrink-0 h-4 w-4 rounded-full border ${isChecked ? 'bg-accent border-accent' : 'border-muted-foreground/50'} mr-1`}
+              onClick={(e) => { e.stopPropagation(); onToggleMultiSelect(l.id); }}
+              aria-label={isChecked ? 'Deselect layer' : 'Select layer'}
+              title={isChecked ? 'Deselect' : 'Select'}
+            />
+          ) : (
+            hasChildren ? (
+              <button
+                onClick={(e) => onToggleCollapse(l.id, e)}
+                className="shrink-0 hover:bg-accent/50 rounded p-0.5"
+              >
+                {isCollapsed ? (
+                  <ChevronRight className="h-3 w-3" />
+                ) : (
+                  <ChevronDown className="h-3 w-3" />
+                )}
+              </button>
+            ) : (
+              <div className="w-4 shrink-0" />
+            )
+          )}
+          {editingId === l.id ? (
+            <input
+              className="w-full bg-transparent border border-muted rounded-sm px-1 py-0.5 text-sm"
+              value={editingName}
+              autoFocus
+              aria-label="Rename layer"
+              title="Rename layer"
+              onChange={(e) => setEditingName(e.target.value)}
+              onBlur={() => onCommitRename()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') onCommitRename();
+                else if (e.key === 'Escape') onCancelRename();
+              }}
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <>
+              {renderingName}{' '}
+              <span className="text-muted-foreground">
+                ({(((l as any)._displayType || l.type) === 'shape') ? 'basic' : ((l as any)._displayType || l.type)})
+              </span>
+            </>
+          )}
+        </div>
+        <div className="flex items-center gap-1 pr-2">
+          {l.type === 'liquidGlass' && !isChromium && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <AlertTriangle className="h-3.5 w-3.5 ml-1 text-amber-600 dark:text-amber-500 shrink-0" />
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-xs">
+                <p className="font-semibold mb-1">Not Visible</p>
+                <p className="text-xs">
+                  This layer only works in Chromium-based browsers and will not be visible in your current browser.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-muted-foreground"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleLayerVisibility(l.id);
+            }}
+            aria-label={isHidden ? 'Show layer' : 'Hide layer'}
+            title={isHidden ? 'Show layer' : 'Hide layer'}
+          >
+            {isHidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </Button>
+
+          {!isProtected && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 text-muted-foreground"
+                  onClick={(e) => { e.stopPropagation(); }}
+                  aria-label="More actions"
+                  title="More actions"
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" sideOffset={4} onClick={(e) => e.stopPropagation()}>
+                <DropdownMenuItem onClick={() => onStartRename(l)}>Rename</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onDuplicateLayer(l.id)}>Duplicate</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onDeleteLayer(l.id)} className="text-destructive focus:text-destructive">Delete</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => { onToggleMultiSelect(l.id); }}>Select</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
+      </div>
+      {showDropLineAfter && (
+        <div
+          className="absolute left-0 right-0 bottom-0 h-0.5 bg-accent z-10 pointer-events-none ml-[calc(8px+var(--layer-depth,0)*16px)]"
+        />
+      )}
+      {children}
+    </div>
+  );
+}
+
 export function LayersPanel() {
   const {
     doc,
@@ -125,187 +366,45 @@ export function LayersPanel() {
     const isChecked = multiSelectedIds.includes(l.id);
     const isHidden = hiddenLayerIds.has(l.id);
 
-    const showDropLineBefore = dragOverId === l.id && dropPosition === 'before';
-    const showDropLineAfter = dragOverId === l.id && dropPosition === 'after';
-
-    const layerStyle = { "--layer-depth": depth } as React.CSSProperties;
-
-    const row = (
-      <div
+    return (
+      <LayerRow
         key={l.id}
-        className="relative"
-        style={layerStyle}
+        layer={l}
+        depth={depth}
+        selectedId={selectedId}
+        dragOverId={dragOverId}
+        dropPosition={dropPosition}
+        isHidden={isHidden}
+        isSelectMode={isSelectMode}
+        isProtected={isProtected}
+        isChecked={isChecked}
+        hasChildren={hasChildren}
+        isCollapsed={isCollapsed}
+        renderingName={l.name || ''}
+        editingId={editingId}
+        editingName={editingName}
+        isChromium={isChromium}
+        onToggleCollapse={toggleCollapse}
+        onStartRename={startRename}
+        onCommitRename={commitRename}
+        onCancelRename={cancelRename}
+        onToggleMultiSelect={toggleMultiSelect}
+        onSelectLayer={selectLayer}
+        onToggleLayerVisibility={toggleLayerVisibility}
+        onDuplicateLayer={duplicateLayer}
+        onDeleteLayer={deleteLayer}
+        setEditingName={setEditingName}
+        setDragOverId={setDragOverId}
+        setDropPosition={setDropPosition}
+        moveLayer={moveLayer}
       >
-        {showDropLineBefore && (
-          <div
-            className="absolute left-0 right-0 top-0 h-0.5 bg-ios-blue z-10 pointer-events-none ml-[calc(8px+var(--layer-depth,0)*16px)]"
-          />
-        )
-        }
-        <div
-          className={cn(
-            "ios-list-item cursor-pointer pl-[calc(16px+var(--layer-depth,0)*16px)]",
-            selectedId === l.id && !dragOverId ? "bg-muted" : "bg-card",
-            dragOverId === l.id && dropPosition === 'into' ? "bg-accent/30" : "",
-            isHidden && "opacity-50"
-          )}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (isSelectMode) toggleMultiSelect(l.id);
-            else selectLayer(l.id);
-          }}
-          onDoubleClick={() => startRename(l)}
-          draggable
-          onDragStart={(e) => {
-            e.stopPropagation();
-            e.dataTransfer.setData('text/cap-layer-id', l.id);
-            try { e.dataTransfer.effectAllowed = 'move'; } catch { }
-          }}
-          onDragOver={(e) => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            const rect = e.currentTarget.getBoundingClientRect();
-            const mouseY = e.clientY;
-            const relativeY = mouseY - rect.top;
-            const isBefore = relativeY < rect.height / 4;
-            const isAfter = relativeY > rect.height * 3 / 4;
-            const position = isBefore ? 'before' : isAfter ? 'after' : 'into';
-            setDragOverId(l.id);
-            setDropPosition(position);
-          }}
-          onDragLeave={() => {
-            setDragOverId((prev) => (prev === l.id ? null : prev));
-            setDropPosition(null);
-          }}
-          onDrop={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const src = e.dataTransfer.getData('text/cap-layer-id');
-            const position = dropPosition;
-            setDragOverId(null);
-            setDropPosition(null);
-            if (!src || src === l.id) return;
-            if (position) moveLayer(src, l.id, position);
-          }}
-        >
-          <div className="truncate flex-1 min-w-0 flex items-center gap-1">
-            {isSelectMode && !isProtected ? (
-              <button
-                className={`shrink-0 h-4 w-4 rounded-full border ${isChecked ? 'bg-accent border-accent' : 'border-muted-foreground/50'} mr-1`}
-                onClick={(e) => { e.stopPropagation(); toggleMultiSelect(l.id); }}
-                aria-label={isChecked ? 'Deselect layer' : 'Select layer'}
-                title={isChecked ? 'Deselect' : 'Select'}
-              />
-            ) : (
-              hasChildren ? (
-                <button
-                  onClick={(e) => toggleCollapse(l.id, e)}
-                  className="shrink-0 hover:bg-accent/50 rounded p-0.5"
-                >
-                  {isCollapsed ? (
-                    <ChevronRight className="h-3 w-3" />
-                  ) : (
-                    <ChevronDown className="h-3 w-3" />
-                  )}
-                </button>
-              ) : (
-                <div className="w-4 shrink-0" />
-              )
-            )}
-            {editingId === l.id ? (
-              <input
-                className="w-full bg-transparent border border-muted rounded-sm px-1 py-0.5 text-sm"
-                value={editingName}
-                autoFocus
-                aria-label="Rename layer"
-                title="Rename layer"
-                onChange={(e) => setEditingName(e.target.value)}
-                onBlur={() => commitRename()}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') commitRename();
-                  else if (e.key === 'Escape') cancelRename();
-                }}
-                onClick={(e) => e.stopPropagation()}
-              />
-            ) : (
-              <>
-                {l.name}{' '}
-                <span className="text-muted-foreground">
-                  ({(((l as any)._displayType || l.type) === 'shape') ? 'basic' : ((l as any)._displayType || l.type)})
-                </span>
-              </>
-            )}
+        {hasChildren && !isCollapsed && (
+          <div key={`${l.id}-children`}>
+            {l.children?.map((c) => renderItem(c, depth + 1))}
           </div>
-          <div className="flex items-center gap-1 pr-2">
-            {l.type === 'liquidGlass' && !isChromium && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <AlertTriangle className="h-3.5 w-3.5 ml-1 text-amber-600 dark:text-amber-500 shrink-0" />
-                </TooltipTrigger>
-                <TooltipContent side="right" className="max-w-xs">
-                  <p className="font-semibold mb-1">Not Visible</p>
-                  <p className="text-xs">
-                    This layer only works in Chromium-based browsers and will not be visible in your current browser.
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 text-muted-foreground"
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleLayerVisibility(l.id);
-              }}
-              aria-label={isHidden ? 'Show layer' : 'Hide layer'}
-              title={isHidden ? 'Show layer' : 'Hide layer'}
-            >
-              {isHidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </Button>
-
-            {!isProtected && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 text-muted-foreground"
-                    onClick={(e) => { e.stopPropagation(); }}
-                    aria-label="More actions"
-                    title="More actions"
-                  >
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" sideOffset={4} onClick={(e) => e.stopPropagation()}>
-                  <DropdownMenuItem onClick={() => startRename(l)}>Rename</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => duplicateLayer(l.id)}>Duplicate</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => deleteLayer(l.id)} className="text-destructive focus:text-destructive">Delete</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => { setIsSelectMode(true); setMultiSelectedIds((prev) => prev.includes(l.id) ? prev : [...prev, l.id]); }}>Select</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-          </div>
-        </div>
-        {
-          showDropLineAfter && (
-            <div
-              className="absolute left-0 right-0 bottom-0 h-0.5 bg-accent z-10 pointer-events-none ml-[calc(8px+var(--layer-depth,0)*16px)]"
-            />
-          )
-        }
-      </div >
+        )}
+      </LayerRow>
     );
-    if (hasChildren && !isCollapsed) {
-      return (
-        <div key={l.id}>
-          {row}
-          {l.children?.map((c) => renderItem(c, depth + 1))}
-        </div>
-      );
-    }
-    return row;
   };
 
   return (

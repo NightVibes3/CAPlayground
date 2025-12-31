@@ -7,30 +7,33 @@ import { findPathTo } from "../../canvas-preview/utils/layerTree";
 import { useTimeline } from "@/context/TimelineContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 
+function DimensionViewerContent({ rect }: { rect: any }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (ref.current) {
+      ref.current.style.setProperty("--dim-left", `${rect.width / 2}px`);
+      ref.current.style.setProperty("--dim-top", `${rect.height + 20}px`);
+    }
+  }, [rect.width, rect.height]);
+
+  return (
+    <div
+      ref={ref}
+      key={"dimension-viewer"}
+      className={"moveable-dimension absolute bg-[#4af] rounded-sm px-1 py-0.5 text-white text-[13px] whitespace-nowrap font-bold moveable-dimension-overlay"}
+    >
+      {Math.round(rect.offsetWidth)} x {Math.round(rect.offsetHeight)}
+    </div>
+  );
+}
+
 const DimensionViewable = {
   name: "dimensionViewable",
   props: [],
   events: [],
   render(moveable: MoveableManagerInterface<any, any>, React: Renderer) {
     const rect = moveable.getRect();
-    const overlayStyle = {
-      "--dim-left": `${rect.width / 2}px`,
-      "--dim-top": `${rect.height + 20}px`,
-      left: "var(--dim-left)",
-      top: "var(--dim-top)",
-      willChange: "transform",
-      transform: "translate(-50%, 0px)",
-    } as React.CSSProperties;
-
-    return (
-      <div
-        key={"dimension-viewer"}
-        className={"moveable-dimension absolute bg-[#4af] rounded-sm px-1 py-0.5 text-white text-[13px] whitespace-nowrap font-bold"}
-        style={overlayStyle}
-      >
-        {Math.round(rect.offsetWidth)} x {Math.round(rect.offsetHeight)}
-      </div>
-    );
+    return <DimensionViewerContent rect={rect} />;
   },
 };
 

@@ -409,6 +409,9 @@ export function MenuBar({ projectId, showLeft = true, showRight = true, toggleLe
           <DialogContent className="sm:max-w-sm">
             <DialogHeader>
               <DialogTitle>Keyboard Shortcuts</DialogTitle>
+              <DialogDescription>
+                Quickly access common editor actions with these keyboard shortcuts.
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-3 text-sm">
               <div className="flex items-center justify-between">

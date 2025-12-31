@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -131,6 +131,9 @@ export function BulkAnimationInput({ keyPath, currentValues, onValuesChange, dis
             <Zap className="w-5 h-5" />
             Bulk Animation Values - {keyPath}
           </DialogTitle>
+          <DialogDescription>
+            Enter multiple values separated by new lines to create an animation.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -153,7 +156,7 @@ export function BulkAnimationInput({ keyPath, currentValues, onValuesChange, dis
             )}
           </div>
           <div className="space-y-2">
-            <Label>Import from File</Label>
+            <Label htmlFor="bulk-file-input">Import from File</Label>
             <div className="flex items-center gap-3">
               <input
                 ref={fileInputRef}
@@ -161,6 +164,8 @@ export function BulkAnimationInput({ keyPath, currentValues, onValuesChange, dis
                 type="file"
                 accept=".txt,.csv"
                 className="hidden"
+                aria-label="Upload values from file"
+                title="Upload values from file"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) {
@@ -198,8 +203,8 @@ export function BulkAnimationInput({ keyPath, currentValues, onValuesChange, dis
               <Button variant="outline" onClick={() => setIsOpen(false)}>
                 Cancel
               </Button>
-              <Button 
-                onClick={applyBulkValues} 
+              <Button
+                onClick={applyBulkValues}
                 disabled={!!parseError || !bulkText.trim()}
               >
                 Apply Values

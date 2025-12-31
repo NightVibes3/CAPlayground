@@ -1,7 +1,7 @@
 "use client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -123,6 +123,9 @@ export function StatesPanel() {
             <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col ios-glass border-none shadow-2xl rounded-[32px]">
               <DialogHeader>
                 <DialogTitle>State Transitions</DialogTitle>
+                <DialogDescription>
+                  View and manage transitions between different wallpaper states.
+                </DialogDescription>
               </DialogHeader>
               <div className="flex-1 overflow-y-auto space-y-6 pr-2">
                 {/* States Summary */}

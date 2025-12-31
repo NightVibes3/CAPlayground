@@ -193,24 +193,19 @@ export function CanvasPreview() {
 
   const selectedLayer = !showPreview ? findById(renderedLayers, current?.selectedId) : null;
   const moveableRef = useRef<Moveable>(null);
+  const rootCanvasRef = useRef<HTMLDivElement>(null);
 
-  const canvasStyle = {
-    "--canvas-width": `${doc?.meta.width}px`,
-    "--canvas-height": `${doc?.meta.height}px`,
-    "--canvas-bg": doc?.meta.background ?? "#f3f4f6",
-    "--canvas-transform": showPreview ? `scale(1)` : `translate(${offsetX}px, ${offsetY}px) scale(${scale})`,
-    "--canvas-overflow": clipToCanvas || showPreview ? "hidden" : "visible",
-    "--canvas-pointer": showPreview ? "none" : "auto",
-    width: "var(--canvas-width)",
-    height: "var(--canvas-height)",
-    background: "var(--canvas-bg)",
-    transform: "var(--canvas-transform)",
-    transformOrigin: "top left",
-    borderRadius: 0,
-    overflow: "var(--canvas-overflow)",
-    boxShadow: "0 0 0 1px rgba(0,0,0,0.05), 0 10px 30px rgba(0,0,0,0.08)",
-    pointerEvents: "var(--canvas-pointer)",
-  } as any;
+  useEffect(() => {
+    const el = rootCanvasRef.current;
+    if (!el) return;
+    el.style.setProperty("--canvas-width", `${doc?.meta.width}px`);
+    el.style.setProperty("--canvas-height", `${doc?.meta.height}px`);
+    el.style.setProperty("--canvas-bg", doc?.meta.background ?? "#f3f4f6");
+    el.style.setProperty("--canvas-transform", showPreview ? `scale(1)` : `translate(${offsetX}px, ${offsetY}px) scale(${scale})`);
+    el.style.setProperty("--canvas-overflow", clipToCanvas || showPreview ? "hidden" : "visible");
+    el.style.setProperty("--canvas-pointer", showPreview ? "none" : "auto");
+  }, [doc?.meta.width, doc?.meta.height, doc?.meta.background, showPreview, offsetX, offsetY, scale, clipToCanvas]);
+
 
   return (
     <Card
@@ -278,11 +273,10 @@ export function CanvasPreview() {
         onClick={() => selectLayer(null)}
       />
       <DevicePreview showPreview={showPreview} setPreviewLayers={setPreviewLayers} scale={scale}>
-        {/* eslint-disable-next-line */}
         <div
           id="root-canvas"
-          className="absolute"
-          style={canvasStyle}
+          ref={rootCanvasRef}
+          className="editor-canvas-root"
         >
           {currentKey === 'floating' && showBackground ? (
             <div className="absolute inset-0 z-0">

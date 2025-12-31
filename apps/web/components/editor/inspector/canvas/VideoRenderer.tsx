@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { useTimeline } from "@/context/TimelineContext";
 import { VideoLayer } from "@/lib/ca/types";
 import useStateTransition from "@/hooks/use-state-transition";
@@ -7,51 +8,51 @@ interface VideoRendererProps {
   layer: VideoLayer;
 }
 
-function SyncWithStateRenderer({ 
-  video, 
-}: { 
-  video: VideoLayer; 
+function SyncChild({ child, video, index }: { child: any; video: VideoLayer; index: number }) {
+  const transition = useStateTransition(child);
+  const frameAssetId = `${video.id}_frame_${index}`;
+  const imageSrc = assetCache.get(frameAssetId);
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  useEffect(() => {
+    if (imgRef.current) {
+      imgRef.current.style.zIndex = String(transition.zPosition ?? 0);
+      imgRef.current.style.borderRadius = `${video.cornerRadius}px`;
+    }
+  }, [transition.zPosition, video.cornerRadius]);
+
+  if (!imageSrc) return null;
+
+  return (
+    <img
+      ref={imgRef}
+      src={imageSrc}
+      alt={child.name}
+      className="renderer-video-sync-child"
+      draggable={false}
+    />
+  );
+}
+
+function SyncWithStateRenderer({
+  video,
+}: {
+  video: VideoLayer;
 }) {
   if (!video.children || video.children.length === 0) return null;
-  
-  const childrenWithAnimatedZ = video.children.map((child) => {
-    const transition = useStateTransition(child);
-    return {
-      child,
-      animatedZPosition: transition.zPosition ?? 0
-    };
-  });
-  
-  const topChildData = childrenWithAnimatedZ.sort((a, b) => (b.animatedZPosition ?? 0) - (a.animatedZPosition ?? 0))[0];
-  
-  const topChild = topChildData.child;
-  
-  if (!topChild) return null;
-  
-  if (topChild.type === 'image') {
-    const frameIndex = video.children.findIndex((child) => child.id === topChild.id);
-    const frameAssetId = `${video.id}_frame_${frameIndex}`;
-    const imageSrc = assetCache.get(frameAssetId);
-    if (!imageSrc) return null;
-    
-    return (
-      <img
-        src={imageSrc}
-        alt={topChild.name}
-        style={{
-          width: "100%",
-          height: "100%",
-          objectFit: "fill",
-          maxWidth: "none",
-          maxHeight: "none",
-          borderRadius: video.cornerRadius,
-        }}
-        draggable={false}
-      />
-    );
-  }
-  
-  return null;
+
+  return (
+    <div className="relative w-full h-full">
+      {video.children.map((child, index) => (
+        <SyncChild
+          key={child.id}
+          child={child}
+          video={video}
+          index={index}
+        />
+      ))}
+    </div>
+  );
 }
 
 export default function VideoRenderer({
@@ -72,7 +73,7 @@ export default function VideoRenderer({
   });
 
   if (frameCount <= 1) return null;
-  
+
   if (video.syncWWithState) {
     return <SyncWithStateRenderer video={video} />;
   }
@@ -86,20 +87,21 @@ export default function VideoRenderer({
 
   const frameIndex = Math.floor(localT * fps) % frameCount;
   const src = frames.get(frameIndex);
-  
+  const mainImgRef = useRef<HTMLImageElement>(null);
+
+  useEffect(() => {
+    if (mainImgRef.current) {
+      mainImgRef.current.style.borderRadius = `${video.cornerRadius}px`;
+    }
+  }, [video.cornerRadius]);
+
   if (loading || !src) return null;
   return (
     <img
+      ref={mainImgRef}
       src={src}
       alt={video.name}
-      style={{
-        width: "100%",
-        height: "100%",
-        objectFit: "fill",
-        maxWidth: "none",
-        maxHeight: "none",
-        borderRadius: video.cornerRadius,
-      }}
+      className="renderer-video-img"
       draggable={false}
     />
   );
