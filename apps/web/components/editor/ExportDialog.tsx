@@ -402,11 +402,9 @@ export function ExportDialog() {
           </DialogHeader>
           <div className="relative overflow-hidden">
             <div
-              className="flex w-[200%] transition-transform duration-300 ease-out"
-              style={{
-                transform:
-                  exportView === "select" ? "translateX(0%)" : "translateX(-50%)",
-              }}
+              className={`flex w-[200%] transition-transform duration-300 ease-out ${
+                exportView === "select" ? "export-view-select" : "export-view-success"
+              }`}
             >
               <div
                 className={`w-1/2 px-0 ${

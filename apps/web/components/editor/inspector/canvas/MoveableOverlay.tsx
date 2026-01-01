@@ -9,11 +9,13 @@ import { useIsMobile } from "@/hooks/use-mobile";
 
 function DimensionViewerContent({ rect }: { rect: any }) {
   const ref = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    if (ref.current) {
-      ref.current.style.setProperty("--dim-left", `${rect.width / 2}px`);
-      ref.current.style.setProperty("--dim-top", `${rect.height + 20}px`);
-    }
+    if (!ref.current) return;
+    ref.current.style.setProperty("--dim-left", `${rect.width / 2}px`);
+    ref.current.style.setProperty("--dim-top", `${rect.height + 20}px`);
+    ref.current.style.left = "var(--dim-left)";
+    ref.current.style.top = "var(--dim-top)";
   }, [rect.width, rect.height]);
 
   return (
@@ -33,7 +35,7 @@ const DimensionViewable = {
   events: [],
   render(moveable: MoveableManagerInterface<any, any>, React: Renderer) {
     const rect = moveable.getRect();
-    return <DimensionViewerContent rect={rect} />;
+    return <DimensionViewerContent key="dimension-viewer" rect={rect} />;
   },
 };
 
@@ -102,12 +104,15 @@ export function MoveableOverlay({
   });
 
   const isMobile = useIsMobile();
-  const path = findPathTo(renderedLayers, selectedLayer?.id ?? '');
+  const path = useMemo(() => findPathTo(renderedLayers, selectedLayer?.id ?? ''), [renderedLayers, selectedLayer?.id]);
 
   useEffect(() => {
     if (!selectedLayer) return;
-    setTargetRef(document.getElementById(selectedLayer.id));
-  }, [selectedLayer, path]);
+    const el = document.getElementById(selectedLayer.id);
+    if (el !== targetRef) {
+      setTargetRef(el);
+    }
+  }, [selectedLayer?.id, path, targetRef]);
 
   if (!selectedLayer) return null;
   const isResizing = currentSize.w !== null || currentSize.h !== null;
@@ -204,10 +209,9 @@ export function MoveableOverlay({
       onResizeStart={({ target }) => {
       }}
       onBeforeResize={(e) => {
-        if (e.inputEvent.shiftKey) {
-          setKeepRatio(true);
-        } else {
-          setKeepRatio(false);
+        const wantsKeepRatio = !!e.inputEvent.shiftKey;
+        if (keepRatio !== wantsKeepRatio) {
+          setKeepRatio(wantsKeepRatio);
         }
       }}
       onResize={({

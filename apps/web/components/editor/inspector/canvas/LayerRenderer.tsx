@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { AnyLayer, ShapeLayer, Size, TransformLayer, Vec2 } from '@/lib/ca/types';
 import { LayerContextMenu } from '../../layer-context-menu';
 import { EmitterCanvas } from '../../emitter/EmitterCanvas';
@@ -209,6 +209,55 @@ export function LayerRenderer({
       transformStyle: 'preserve-3d',
     };
   }
+  const layerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = layerRef.current;
+    if (!el) return;
+
+    const transformsJoin = transforms.join(' ');
+    const finalTransform = layer.type === 'transform' 
+      ? [transformsJoin, transformString].filter(Boolean).join(' ')
+      : transformsJoin;
+
+    el.style.setProperty("--layer-top", useYUp ? '100%' : '0');
+    el.style.setProperty("--layer-width", `${width}px`);
+    el.style.setProperty("--layer-height", `${height}px`);
+    el.style.setProperty("--layer-transform", finalTransform);
+    el.style.setProperty("--layer-transform-origin", `${anchor.x * 100}% ${transformOriginY}%`);
+    el.style.setProperty("--layer-opacity", String(typeof opacity === 'number' ? Math.max(0, Math.min(1, opacity)) : 1));
+    el.style.setProperty("--layer-z-index", String(layer.name === 'BACKGROUND' ? -1 : 0));
+    el.style.setProperty("--layer-border", String(borderStyle.border || 'none'));
+    el.style.setProperty("--layer-border-radius", typeof layer.cornerRadius === 'number' ? `${layer.cornerRadius}px` : (layer.type === 'shape' && (layer as ShapeLayer).shape === 'circle' ? '9999px' : '0px'));
+    el.style.setProperty("--layer-overflow", layer.masksToBounds ? 'hidden' : 'visible');
+    el.style.setProperty("--layer-mix-blend-mode", blendModes[layer.blendMode || 'normalBlendMode']?.css ?? 'normal');
+    el.style.setProperty("--layer-filter", common.filter || 'none');
+    el.style.setProperty("--layer-background", String(style.background || 'transparent'));
+    el.style.setProperty("--layer-transform-style", layer.type === 'transform' ? 'preserve-3d' : 'flat');
+    el.style.setProperty("--layer-pointer-events", isWrappedContent ? 'none' : 'auto');
+
+    // Apply to actual properties
+    el.style.top = "var(--layer-top)";
+    el.style.width = "var(--layer-width)";
+    el.style.height = "var(--layer-height)";
+    el.style.transform = "var(--layer-transform)";
+    el.style.transformOrigin = "var(--layer-transform-origin)";
+    el.style.opacity = "var(--layer-opacity)";
+    el.style.zIndex = "var(--layer-z-index)";
+    el.style.border = "var(--layer-border)";
+    el.style.borderRadius = "var(--layer-border-radius)";
+    el.style.overflow = "var(--layer-overflow)";
+    el.style.mixBlendMode = "var(--layer-mix-blend-mode)" as any;
+    el.style.filter = "var(--layer-filter)";
+    el.style.background = "var(--layer-background)";
+    el.style.transformStyle = "var(--layer-transform-style)" as any;
+    el.style.pointerEvents = "var(--layer-pointer-events)";
+  }, [
+    useYUp, width, height, transforms.join('|'), transformString, anchor.x, transformOriginY, opacity, 
+    layer.name, borderStyle.border, layer.cornerRadius, layer.type, 
+    layer.masksToBounds, layer.blendMode, common.filter, style.background, isWrappedContent
+  ]);
+
   const { onPointerDown, onPointerMove, onPointerUp } = useMoveablePointerDrag({
     layerId: layer.id,
     moveableRef,
@@ -218,7 +267,8 @@ export function LayerRenderer({
     <LayerContextMenu layer={layer} siblings={siblings}>
       <div
         id={layer.id}
-        style={style}
+        ref={layerRef}
+        className="layer-renderer-base"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}

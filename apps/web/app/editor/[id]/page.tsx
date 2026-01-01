@@ -132,30 +132,43 @@ export default function EditorPage() {
                     <motion.div
                       initial={{ y: "100%" }}
                       animate={{ 
-                        y: detent === 'full' ? (isPeeking ? 40 : 0) : "45%",
+                        y: detent === 'full' ? (isPeeking ? 40 : 0) : 400, // Fixed numeric value for half detent
                         opacity: isPeeking ? 0.2 : 1,
                         scale: isPeeking ? 0.98 : 1,
                       }}
-                      exit={{ y: "100%" }}
+                      exit={{ y: 800 }} // Explicit numeric exit
                       drag="y"
                       dragControls={dragControls}
                       dragListener={false}
                       dragConstraints={{ top: 0, bottom: 800 }}
-                      dragElastic={0.1}
+                      dragElastic={0.05} // More native feel
                       onDragEnd={(_, info) => {
-                        const y = info.offset.y;
+                        const y = info.point.y; // Use point instead of offset for absolute reference
                         const velocity = info.velocity.y;
                         
                         // Swipe down force: close
-                        if (velocity > 400 || y > 350) {
+                        if (velocity > 500) {
                           setMobileView('canvas');
+                          return;
                         } 
+                        
                         // Swipe up force: full
-                        else if (velocity < -400) {
+                        if (velocity < -500) {
                           setDetent('full');
+                          return;
                         }
-                        // Position based snapping
-                        else if (y > 150) {
+
+                        // Snap to points
+                        const screenHeight = window.innerHeight;
+                        const halfPoint = 400;
+                        const fullPoint = 0;
+                        const closePoint = 800;
+
+                        const currentY = info.offset.y + (detent === 'half' ? 400 : 0);
+                        
+                        if (currentY > 600) {
+                          setMobileView('canvas');
+                        } else if (currentY > 200) {
                           setDetent('half');
                         } else {
                           setDetent('full');
@@ -163,9 +176,9 @@ export default function EditorPage() {
                       }}
                       transition={{ 
                         type: "spring", 
-                        damping: 30, 
-                        stiffness: 300,
-                        mass: 0.8
+                        damping: 25, 
+                        stiffness: 250,
+                        mass: 0.5
                       }}
                       className={cn(
                         "absolute inset-0 z-50 flex flex-col pt-10",
@@ -178,7 +191,7 @@ export default function EditorPage() {
                         <div className="w-full flex items-center justify-between px-6 py-3 shrink-0">
                           <div className="w-10" /> {/* Spacer */}
                           <div 
-                            className="w-20 h-2 bg-muted-foreground/20 rounded-full cursor-grab active:cursor-grabbing hover:bg-muted-foreground/30 transition-colors p-3 -m-3" 
+                            className="w-20 h-2 bg-muted-foreground/20 rounded-full cursor-grab active:cursor-grabbing hover:bg-muted-foreground/30 transition-colors p-3 -m-3 touch-none" 
                             onPointerDown={(e) => dragControls.start(e)}
                           />
                           <button

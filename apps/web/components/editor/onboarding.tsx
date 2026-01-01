@@ -180,41 +180,69 @@ export function EditorOnboarding({ showLeft, showRight }: { showLeft: boolean; s
       <div className="absolute inset-0 bg-black/50" />
       {/* Highlight box */}
       {r && (
-        <div
-          className="absolute rounded-md ring-2 ring-white/80 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]"
-          style={{ left: r.left - 4, top: r.top - 4, width: r.width + 8, height: r.height + 8 }}
-        />
+        <HighlightBox r={r} />
       )}
       {/* Tooltip */}
-      <div
-        className="absolute w-[320px] bg-background text-foreground border rounded-md p-3 shadow-xl pointer-events-auto"
-        style={{ left: tipX, top: tipY }}
-      >
-        <div className="text-sm font-medium mb-1">{step.title}</div>
-        <div className="text-xs text-muted-foreground mb-3">{step.body}</div>
-        <div className="flex items-center justify-between">
-          <Button variant="outline" size="sm" onClick={goPrev}>Back</Button>
-          <div className="flex items-center gap-2">
-            {!isLast && (
-              <Button variant="ghost" size="sm" onClick={finish}>Skip</Button>
-            )}
-            {isLast && (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => { if (typeof window !== 'undefined') window.open('https://docs.enkei64.xyz', '_blank', 'noopener,noreferrer'); }}
-              >
-                Documentation
-              </Button>
-            )}
-            <Button size="sm" onClick={isLast ? finish : goNext}>{isLast ? 'Done' : 'Next'}</Button>
-          </div>
-        </div>
-      </div>
+      <TooltipBox tipX={tipX} tipY={tipY} step={step} goPrev={goPrev} isLast={isLast} finish={finish} goNext={goNext} />
     </div>
   );
 
   return createPortal(overlay, document.body);
+}
+
+function HighlightBox({ r }: { r: DOMRect }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!ref.current) return;
+    ref.current.style.setProperty("--rect-left", `${r.left}px`);
+    ref.current.style.setProperty("--rect-top", `${r.top}px`);
+    ref.current.style.setProperty("--rect-width", `${r.width}px`);
+    ref.current.style.setProperty("--rect-height", `${r.height}px`);
+  }, [r]);
+
+  return (
+    <div
+      ref={ref}
+      className="absolute rounded-md ring-2 ring-white/80 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)] onboarding-highlight"
+    />
+  );
+}
+
+function TooltipBox({ tipX, tipY, step, goPrev, isLast, finish, goNext }: any) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!ref.current) return;
+    ref.current.style.setProperty("--tip-x", `${tipX}px`);
+    ref.current.style.setProperty("--tip-y", `${tipY}px`);
+  }, [tipX, tipY]);
+
+  return (
+    <div
+      ref={ref}
+      className="absolute w-[320px] bg-background text-foreground border rounded-md p-3 shadow-xl pointer-events-auto onboarding-tooltip"
+    >
+      <div className="text-sm font-medium mb-1">{step.title}</div>
+      <div className="text-xs text-muted-foreground mb-3">{step.body}</div>
+      <div className="flex items-center justify-between">
+        <Button variant="outline" size="sm" onClick={goPrev}>Back</Button>
+        <div className="flex items-center gap-2">
+          {!isLast && (
+            <Button variant="ghost" size="sm" onClick={finish}>Skip</Button>
+          )}
+          {isLast && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => { if (typeof window !== 'undefined') window.open('https://docs.enkei64.xyz', '_blank', 'noopener,noreferrer'); }}
+            >
+              Documentation
+            </Button>
+          )}
+          <Button size="sm" onClick={isLast ? finish : goNext}>{isLast ? 'Done' : 'Next'}</Button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default EditorOnboarding;

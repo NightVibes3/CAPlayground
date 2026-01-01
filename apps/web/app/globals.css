@@ -266,4 +266,54 @@ button {
     overflow: var(--canvas-overflow);
     pointer-events: var(--canvas-pointer);
   }
+  .layer-renderer-base {
+    position: absolute;
+    left: 0;
+    top: var(--layer-top);
+    width: var(--layer-width);
+    height: var(--layer-height);
+    transform: var(--layer-transform);
+    transform-origin: var(--layer-transform-origin);
+    backface-visibility: visible;
+    opacity: var(--layer-opacity);
+    z-index: var(--layer-z-index);
+    border: var(--layer-border);
+    border-radius: var(--layer-border-radius);
+    overflow: var(--layer-overflow);
+    mix-blend-mode: var(--layer-mix-blend-mode);
+    filter: var(--layer-filter);
+    background: var(--layer-background);
+    transform-style: var(--layer-transform-style);
+    cursor: move;
+  }
+
+  .export-view-select {
+    transform: translateY(0);
+  }
+
+  .export-view-success {
+    transform: translateY(-100%);
+  }
+
+  .onboarding-highlight {
+    position: absolute;
+    pointer-events: none;
+    border: 2px solid white;
+    border-radius: 8px;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.7);
+    z-index: 9999;
+    transition: all 0.3s ease;
+    left: var(--hl-x);
+    top: var(--hl-y);
+    width: var(--hl-w);
+    height: var(--hl-h);
+  }
+
+  .onboarding-tooltip {
+    position: absolute;
+    z-index: 10000;
+    transition: all 0.3s ease;
+    left: var(--tt-x);
+    top: var(--tt-y);
+  }
 }

@@ -200,7 +200,11 @@ export function CanvasPreview() {
     if (!el) return;
     el.style.setProperty("--canvas-width", `${doc?.meta.width}px`);
     el.style.setProperty("--canvas-height", `${doc?.meta.height}px`);
-    el.style.setProperty("--canvas-bg", doc?.meta.background ?? "#f3f4f6");
+    
+    // If background is purely white and we are in dark mode, or it's not set, use a nicer default
+    const defaultBg = doc?.meta.background === "#ffffff" ? "var(--background)" : (doc?.meta.background ?? "var(--background)");
+    el.style.setProperty("--canvas-bg", defaultBg);
+    
     el.style.setProperty("--canvas-transform", showPreview ? `scale(1)` : `translate(${offsetX}px, ${offsetY}px) scale(${scale})`);
     el.style.setProperty("--canvas-overflow", clipToCanvas || showPreview ? "hidden" : "visible");
     el.style.setProperty("--canvas-pointer", showPreview ? "none" : "auto");
@@ -231,36 +235,7 @@ export function CanvasPreview() {
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchCancel}
       onMouseDown={(e) => {
-        // Middle mouse button or Shift + drag to pan around
-        if (!ref.current) return;
-        if (e.shiftKey || e.button === 1) {
-          e.preventDefault();
-          const startClientX = e.clientX;
-          const startClientY = e.clientY;
-          panDragRef.current = {
-            startClientX,
-            startClientY,
-            startPanX: pan.x,
-            startPanY: pan.y,
-          };
-          setIsPanning(true);
-          const onMove = (ev: MouseEvent) => {
-            const d = panDragRef.current;
-            if (!d) return;
-            const dx = ev.clientX - d.startClientX;
-            const dy = ev.clientY - d.startClientY;
-            setPan({ x: d.startPanX + dx, y: d.startPanY + dy });
-          };
-          const onUp = () => {
-            panDragRef.current = null;
-            setIsPanning(false);
-            window.removeEventListener('mousemove', onMove);
-            window.removeEventListener('mouseup', onUp);
-          };
-          window.addEventListener('mousemove', onMove);
-          window.addEventListener('mouseup', onUp);
-          return;
-        }
+        // Panning is disabled per user request
       }}
       onKeyDown={() => { }}
     >
