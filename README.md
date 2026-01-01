@@ -1,14 +1,6 @@
-<table width="100%">
-  <tr>
-    <td align="right" width="120">
-      <img src="apps/web/public/icon-dark.png" alt="CAPlayground Logo" width="100" />
-    </td>
-    <td align="left">
-      <h1>CAPlayground</span></h1>
-      <h3 style="margin-top: -10px;">Create beautiful animated wallpapers for iOS and iPadOS on any desktop computer.</h3>
-    </td>
-  </tr>
-</table>
+# ![CAPlayground Logo](apps/web/public/icon-dark.png) CAPlayground
+
+Create beautiful animated wallpapers for iOS and iPadOS on any desktop computer.
 
 ## Overview
 
@@ -24,6 +16,7 @@ CAPlayground is a web-based Core Animation editor for making stunning wallpapers
 ### Install
 
 Install project dependencies:
+
 ```bash
 bun install
 ```
@@ -31,11 +24,12 @@ bun install
 ### Development
 
 To start the dev server:
+
 ```bash
 bun run dev
 ```
 
-Open http://localhost:3000 in your browser.
+Open <http://localhost:3000> in your browser.
 
 ### Deployment
 
@@ -56,7 +50,7 @@ Authentication is powered by Supabase. If you don't provide auth keys, the site 
 
 Create a `.env.local` in the project root with:
 
-```
+```env
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 # Only required for server-side account deletion API
