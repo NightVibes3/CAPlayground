@@ -157,7 +157,7 @@ export function ExportDialog() {
       if (!doc) return false;
       try {
         await flushPersist();
-        await cleanupAssets(); // Remove orphaned asset files before export
+        await cleanupAssets(); 
       } catch {}
       const proj = await getProject(doc.meta.id);
       const baseName =
@@ -286,7 +286,7 @@ export function ExportDialog() {
 
       if (isGyro) {
         const wallpaperPrefix = `${folder}/Wallpaper.ca/`;
-        // FIXED TYPE: Added '' key here to fix the "Expression expected" error
+        // FIX: Explicitly added '' property to the type definition
         const caMap: Array<{ path: string;  Uint8Array | string }> = [];
         for (const f of allFiles) {
           if (f.path.startsWith(wallpaperPrefix)) {
