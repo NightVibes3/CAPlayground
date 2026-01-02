@@ -121,28 +121,35 @@ export function ExportDialog() {
     };
   }, [supabase]);
 
-  // NEW STABLE DOWNLOAD HELPER FOR MEDIAN/GONATIVE
-  const triggerStableDownload = (blob: Blob, nameSafe: string, extension: string) => {
+  // Helper: force native download in Median / GoNative, fallback to browser
+  const downloadViaBridgeOrBrowser = (blob: Blob, nameSafe: string, ext: string) => {
     const reader = new FileReader();
     reader.readAsDataURL(blob);
     reader.onloadend = () => {
       const base64data = reader.result as string;
-      const isMedianApp = typeof window !== 'undefined' && 
-                         (navigator.userAgent.includes('gonative') || (window as any).median);
+      const ua = navigator.userAgent.toLowerCase();
+      const isApp =
+        (window as any).median ||
+        (window as any).gonative ||
+        ua.includes("gonative") ||
+        ua.includes("median");
 
-      if (isMedianApp) {
-        // Direct bridge command to the native iOS "Save/Share" controller
-        window.location.href = `gonative://share/downloadFile?url=${encodeURIComponent(base64data)}&filename=${encodeURIComponent(nameSafe)}${extension}`;
+      if (isApp) {
+        // Median / GoNative bridge: this is what forces the filename + extension
+        const bridgeUrl = `gonative://share/downloadFile?url=${encodeURIComponent(
+          base64data,
+        )}&filename=${encodeURIComponent(nameSafe)}${ext}`;
+        window.location.href = bridgeUrl;
       } else {
-        // Fallback for desktop browsers
+        // Normal browser
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `${nameSafe}${extension}`;
+        a.download = `${nameSafe}${ext}`;
         document.body.appendChild(a);
         a.click();
         a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 100);
+        URL.revokeObjectURL(url);
       }
     };
   };
@@ -152,10 +159,14 @@ export function ExportDialog() {
       if (!doc) return false;
       try {
         await flushPersist();
-        await cleanupAssets();
+        await cleanupAssets(); // Remove orphaned asset files before export
       } catch {}
       const proj = await getProject(doc.meta.id);
-      const baseName = (downloadNameOverride && downloadNameOverride.trim()) || proj?.name || doc.meta.name || "Project";
+      const baseName =
+        (downloadNameOverride && downloadNameOverride.trim()) ||
+        proj?.name ||
+        doc.meta.name ||
+        "Project";
       const nameSafe = baseName.replace(/[^a-z0-9\-_]+/gi, "-");
       const folder = `${proj?.name || doc.meta.name || "Project"}.ca`;
       const allFiles = await listFiles(doc.meta.id, `${folder}/`);
@@ -165,29 +176,59 @@ export function ExportDialog() {
       if (isGyro) {
         const wallpaperPrefix = `${folder}/Wallpaper.ca/`;
         for (const f of allFiles) {
+          let rel: string | null = null;
           if (f.path.startsWith(wallpaperPrefix)) {
-            const rel = `Wallpaper.ca/${f.path.substring(wallpaperPrefix.length)}`;
-            f.type === "text" ? outputZip.file(rel, String(f.data)) : outputZip.file(rel, f.data as ArrayBuffer);
+            rel = `Wallpaper.ca/${f.path.substring(wallpaperPrefix.length)}`;
+          } else {
+            rel = null;
+          }
+          if (!rel) continue;
+          if (f.type === "text") {
+            outputZip.file(rel, String(f.data));
+          } else {
+            const buf = f.data as ArrayBuffer;
+            outputZip.file(rel, buf);
           }
         }
       } else {
         const backgroundPrefix = `${folder}/Background.ca/`;
         const floatingPrefix = `${folder}/Floating.ca/`;
         for (const f of allFiles) {
-          let rel = f.path.startsWith(backgroundPrefix) ? `Background.ca/${f.path.substring(backgroundPrefix.length)}` :
-                    f.path.startsWith(floatingPrefix) ? `Floating.ca/${f.path.substring(floatingPrefix.length)}` : null;
-          if (rel) f.type === "text" ? outputZip.file(rel, String(f.data)) : outputZip.file(rel, f.data as ArrayBuffer);
+          let rel: string | null = null;
+          if (f.path.startsWith(backgroundPrefix)) {
+            rel = `Background.ca/${f.path.substring(backgroundPrefix.length)}`;
+          } else if (f.path.startsWith(floatingPrefix)) {
+            rel = `Floating.ca/${f.path.substring(floatingPrefix.length)}`;
+          } else {
+            rel = null;
+          }
+          if (!rel) continue;
+          if (f.type === "text") {
+            outputZip.file(rel, String(f.data));
+          } else {
+            const buf = f.data as ArrayBuffer;
+            outputZip.file(rel, buf);
+          }
         }
       }
 
       const licenseText = await loadLicenseText(exportLicense);
-      if (licenseText) outputZip.file("LICENSE.txt", licenseText);
+      if (licenseText) {
+        outputZip.file("LICENSE.txt", licenseText);
+      }
 
       const finalZipBlob = await outputZip.generateAsync({ type: "blob" });
-      triggerStableDownload(finalZipBlob, nameSafe, ".ca");
+
+      // CHANGE HERE: use bridge helper instead of direct <a> download
+      downloadViaBridgeOrBrowser(finalZipBlob, nameSafe, ".ca");
       return true;
     } catch (e) {
       console.error("Export failed", e);
+      toast({
+        title: "Export failed",
+        description: "Failed to export .ca file. Please try again.",
+        variant: "destructive",
+      });
       return false;
     }
   };
@@ -196,55 +237,139 @@ export function ExportDialog() {
     try {
       setExportingTendies(true);
       if (!doc) return false;
-      try { await flushPersist(); await cleanupAssets(); } catch {}
+      try {
+        await flushPersist();
+        await cleanupAssets();
+      } catch {}
       const proj = await getProject(doc.meta.id);
-      const baseName = (downloadNameOverride && downloadNameOverride.trim()) || proj?.name || doc.meta.name || "Project";
+      const baseName =
+        (downloadNameOverride && downloadNameOverride.trim()) ||
+        proj?.name ||
+        doc.meta.name ||
+        "Project";
       const nameSafe = baseName.replace(/[^a-z0-9\-_]+/gi, "-");
       const isGyro = doc.meta.gyroEnabled ?? false;
 
-      const templateResponse = await fetch(isGyro ? "/api/templates/gyro-tendies" : "/api/templates/tendies");
+      const templateEndpoint = isGyro
+        ? "/api/templates/gyro-tendies"
+        : "/api/templates/tendies";
+      const templateResponse = await fetch(templateEndpoint, {
+        method: "GET",
+        headers: {
+          Accept: "application/zip",
+        },
+        signal: AbortSignal.timeout(30000),
+      });
+
+      if (!templateResponse.ok) {
+        throw new Error(
+          `Failed to fetch tendies template: ${templateResponse.status} ${templateResponse.statusText}`,
+        );
+      }
+
       const templateArrayBuffer = await templateResponse.arrayBuffer();
+
+      if (templateArrayBuffer.byteLength === 0) {
+        throw new Error("Error with length of tendies file");
+      }
+
       const templateZip = new JSZip();
       await templateZip.loadAsync(templateArrayBuffer);
+
       const outputZip = new JSZip();
 
       for (const [relativePath, file] of Object.entries(templateZip.files)) {
-        if (!file.dir) outputZip.file(relativePath, await file.async("uint8array"));
+        if (!file.dir) {
+          const content = await file.async("uint8array");
+          outputZip.file(relativePath, content);
+        }
       }
-      
       const folder = `${proj?.name || doc.meta.name || "Project"}.ca`;
       const allFiles = await listFiles(doc.meta.id, `${folder}/`);
 
       if (isGyro) {
-        const wpPrefix = `${folder}/Wallpaper.ca/`;
+        const wallpaperPrefix = `${folder}/Wallpaper.ca/`;
+        const caMap: Array<{ path: string;  Uint8Array | string }> = [];
         for (const f of allFiles) {
-          if (f.path.startsWith(wpPrefix)) {
-            const fullPath = `descriptors/99990000-0000-0000-0000-000000000000/versions/0/contents/7400.WWDC_2022-390w-844h@3x~iphone.wallpaper/wallpaper.ca/${f.path.substring(wpPrefix.length)}`;
-            outputZip.file(fullPath, f.type === "text" ? String(f.data) : new Uint8Array(f.data as ArrayBuffer));
+          if (f.path.startsWith(wallpaperPrefix)) {
+            caMap.push({
+              path: f.path.substring(wallpaperPrefix.length),
+              
+                f.type === "text"
+                  ? String(f.data)
+                  : new Uint8Array(f.data as ArrayBuffer),
+            });
           }
         }
+        const caFolderPath =
+          "descriptors/99990000-0000-0000-0000-000000000000/versions/0/contents/7400.WWDC_2022-390w-844h@3x~iphone.wallpaper/wallpaper.ca";
+        for (const file of caMap) {
+          const fullPath = `${caFolderPath}/${file.path}`;
+          if (typeof file.data === "string") outputZip.file(fullPath, file.data);
+          else outputZip.file(fullPath, file.data);
+        }
       } else {
-        const bgPrefix = `${folder}/Background.ca/`, flPrefix = `${folder}/Floating.ca/`;
+        const backgroundPrefix = `${folder}/Background.ca/`;
+        const floatingPrefix = `${folder}/Floating.ca/`;
+        const caMap: Record<
+          "background" | "floating",
+          Array<{ path: string;  Uint8Array | string }>
+        > = { background: [], floating: [] };
         for (const f of allFiles) {
-          let p = f.path.startsWith(bgPrefix) ? `7400.WWDC_2022_Background-390w-844h@3x~iphone.ca/${f.path.substring(bgPrefix.length)}` :
-                  f.path.startsWith(flPrefix) ? `7400.WWDC_2022_Floating-390w-844h@3x~iphone.ca/${f.path.substring(flPrefix.length)}` : "";
-          if (p) {
-            const fullPath = `descriptors/09E9B685-7456-4856-9C10-47DF26B76C33/versions/1/contents/7400.WWDC_2022-390w-844h@3x~iphone.wallpaper/${p}`;
-            outputZip.file(fullPath, f.type === "text" ? String(f.data) : new Uint8Array(f.data as ArrayBuffer));
+          if (f.path.startsWith(backgroundPrefix)) {
+            caMap.background.push({
+              path: f.path.substring(backgroundPrefix.length),
+              
+                f.type === "text"
+                  ? String(f.data)
+                  : new Uint8Array(f.data as ArrayBuffer),
+            });
+          } else if (f.path.startsWith(floatingPrefix)) {
+            caMap.floating.push({
+              path: f.path.substring(floatingPrefix.length),
+              
+                f.type === "text"
+                  ? String(f.data)
+                  : new Uint8Array(f.data as ArrayBuffer),
+            });
+          }
+        }
+        const caKeys = ["background", "floating"] as const;
+        for (const key of caKeys) {
+          const caFolderPath =
+            key === "floating"
+              ? "descriptors/09E9B685-7456-4856-9C10-47DF26B76C33/versions/1/contents/7400.WWDC_2022-390w-844h@3x~iphone.wallpaper/7400.WWDC_2022_Floating-390w-844h@3x~iphone.ca"
+              : "descriptors/09E9B685-7456-4856-9C10-47DF26B76C33/versions/1/contents/7400.WWDC_2022-390w-844h@3x~iphone.wallpaper/7400.WWDC_2022_Background-390w-844h@3x~iphone.ca";
+          for (const file of caMap[key]) {
+            const fullPath = `${caFolderPath}/${file.path}`;
+            if (typeof file.data === "string") outputZip.file(fullPath, file.data);
+            else outputZip.file(fullPath, file.data);
           }
         }
       }
 
       const licenseText = await loadLicenseText(exportLicense);
-      if (licenseText) outputZip.file("LICENSE.txt", licenseText);
+      if (licenseText) {
+        outputZip.file("LICENSE.txt", licenseText);
+      }
 
       const finalZipBlob = await outputZip.generateAsync({ type: "blob" });
-      triggerStableDownload(finalZipBlob, nameSafe, ".tendies");
 
-      toast({ title: "Export successful", description: `Tendies file "${nameSafe}.tendies" has been downloaded.` });
+      // CHANGE HERE: use bridge helper instead of direct <a> download
+      downloadViaBridgeOrBrowser(finalZipBlob, nameSafe, ".tendies");
+
+      toast({
+        title: "Export successful",
+        description: `Tendies file "${nameSafe}.tendies" has been downloaded.`,
+      });
       return true;
     } catch (e) {
       console.error("Tendies export failed", e);
+      toast({
+        title: "Export failed",
+        description: "Failed to export tendies file. Please try again.",
+        variant: "destructive",
+      });
       return false;
     } finally {
       setExportingTendies(false);
@@ -368,6 +493,16 @@ export function ExportDialog() {
                         <SelectItem value="cc-by-nc-4.0">CC BY-NC 4.0</SelectItem>
                       </SelectContent>
                     </Select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {exportLicense === "none" &&
+                        "No license text is included. You retain all rights; sharing terms are not specified."}
+                      {exportLicense === "cc-by-4.0" &&
+                        "Requires attribution. Allows sharing and adaptation, including commercial use. Not recommended to allow commercial use."}
+                      {exportLicense === "cc-by-sa-4.0" &&
+                        "Requires attribution and share-alike. Adaptations must use the same license. Not recommended to allow commercial use."}
+                      {exportLicense === "cc-by-nc-4.0" &&
+                        "Requires attribution. Non-commercial use only; adaptations are allowed with the same terms. This license is recommended to prevent work from being sold."}
+                    </p>
                   </div>
                   <div className="space-y-2 pt-2">
                     {requiresLicenseConfirmation ? (
