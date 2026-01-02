@@ -121,7 +121,7 @@ export function ExportDialog() {
     };
   }, [supabase]);
 
-  // Helper: force native download in Median / GoNative, fallback to browser
+  // Bridge-aware download helper
   const downloadViaBridgeOrBrowser = (blob: Blob, nameSafe: string, ext: string) => {
     const reader = new FileReader();
     reader.readAsDataURL(blob);
@@ -135,13 +135,11 @@ export function ExportDialog() {
         ua.includes("median");
 
       if (isApp) {
-        // Median / GoNative bridge: this is what forces the filename + extension
         const bridgeUrl = `gonative://share/downloadFile?url=${encodeURIComponent(
           base64data,
         )}&filename=${encodeURIComponent(nameSafe)}${ext}`;
         window.location.href = bridgeUrl;
       } else {
-        // Normal browser
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -219,7 +217,6 @@ export function ExportDialog() {
 
       const finalZipBlob = await outputZip.generateAsync({ type: "blob" });
 
-      // CHANGE HERE: use bridge helper instead of direct <a> download
       downloadViaBridgeOrBrowser(finalZipBlob, nameSafe, ".ca");
       return true;
     } catch (e) {
@@ -289,6 +286,7 @@ export function ExportDialog() {
 
       if (isGyro) {
         const wallpaperPrefix = `${folder}/Wallpaper.ca/`;
+        // FIXED TYPE HERE
         const caMap: Array<{ path: string;  Uint8Array | string }> = [];
         for (const f of allFiles) {
           if (f.path.startsWith(wallpaperPrefix)) {
@@ -355,7 +353,6 @@ export function ExportDialog() {
 
       const finalZipBlob = await outputZip.generateAsync({ type: "blob" });
 
-      // CHANGE HERE: use bridge helper instead of direct <a> download
       downloadViaBridgeOrBrowser(finalZipBlob, nameSafe, ".tendies");
 
       toast({
