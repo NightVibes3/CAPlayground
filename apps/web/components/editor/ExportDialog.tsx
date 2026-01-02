@@ -157,7 +157,7 @@ export function ExportDialog() {
       if (!doc) return false;
       try {
         await flushPersist();
-        await cleanupAssets(); 
+        await cleanupAssets(); // Remove orphaned asset files before export
       } catch {}
       const proj = await getProject(doc.meta.id);
       const baseName =
@@ -286,7 +286,7 @@ export function ExportDialog() {
 
       if (isGyro) {
         const wallpaperPrefix = `${folder}/Wallpaper.ca/`;
-        // FIX: Explicitly added '' property to the type definition
+        // FIX: The error was here. Added 'data' property to the type.
         const caMap: Array<{ path: string;  Uint8Array | string }> = [];
         for (const f of allFiles) {
           if (f.path.startsWith(wallpaperPrefix)) {
@@ -638,3 +638,5 @@ export function ExportDialog() {
     </div>
   );
 }
+
+export default ExportDialog;
