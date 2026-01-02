@@ -107,7 +107,7 @@ export function ExportDialog() {
         const name = meta.full_name || meta.name || meta.username || user.email || "";
         if (mounted) setDisplayName(name as string);
 
-        const {  profile } = await supabase
+        const { data: profile } = await supabase
           .from("profiles")
           .select("username")
           .eq("id", user.id)
@@ -121,32 +121,19 @@ export function ExportDialog() {
     };
   }, [supabase]);
 
-  // Helper function to handle Median app downloads
-  const medianDownload = (blob: Blob, fileName: string) => {
-    const isMedianApp = typeof window !== 'undefined' && 
-                       (navigator.userAgent.includes('gonative') || (window as any).median);
-
-    if (isMedianApp) {
-      const reader = new FileReader();
-      reader.readAsDataURL(blob);
-      reader.onloadend = () => {
-        const base64data = reader.result as string;
-        window.location.href = `gonative://share/downloadFile?url=${encodeURIComponent(base64data)}&filename=${encodeURIComponent(fileName)}`;
-      };
-      return true;
-    }
-    return false;
-  };
-
   const exportCA = async (downloadNameOverride?: string): Promise<boolean> => {
     try {
       if (!doc) return false;
       try {
         await flushPersist();
-        await cleanupAssets();
+        await cleanupAssets(); // Remove orphaned asset files before export
       } catch {}
       const proj = await getProject(doc.meta.id);
-      const baseName = (downloadNameOverride && downloadNameOverride.trim()) || proj?.name || doc.meta.name || "Project";
+      const baseName =
+        (downloadNameOverride && downloadNameOverride.trim()) ||
+        proj?.name ||
+        doc.meta.name ||
+        "Project";
       const nameSafe = baseName.replace(/[^a-z0-9\-_]+/gi, "-");
       const folder = `${proj?.name || doc.meta.name || "Project"}.ca`;
       const allFiles = await listFiles(doc.meta.id, `${folder}/`);
@@ -156,32 +143,53 @@ export function ExportDialog() {
       if (isGyro) {
         const wallpaperPrefix = `${folder}/Wallpaper.ca/`;
         for (const f of allFiles) {
-          let rel = f.path.startsWith(wallpaperPrefix) ? `Wallpaper.ca/${f.path.substring(wallpaperPrefix.length)}` : null;
+          let rel: string | null = null;
+          if (f.path.startsWith(wallpaperPrefix)) {
+            rel = `Wallpaper.ca/${f.path.substring(wallpaperPrefix.length)}`;
+          } else {
+            rel = null;
+          }
           if (!rel) continue;
-          f.type === "text" ? outputZip.file(rel, String(f.data)) : outputZip.file(rel, f.data as ArrayBuffer);
+          if (f.type === "text") {
+            outputZip.file(rel, String(f.data));
+          } else {
+            const buf = f.data as ArrayBuffer;
+            outputZip.file(rel, buf);
+          }
         }
       } else {
         const backgroundPrefix = `${folder}/Background.ca/`;
         const floatingPrefix = `${folder}/Floating.ca/`;
         for (const f of allFiles) {
-          let rel = f.path.startsWith(backgroundPrefix) ? `Background.ca/${f.path.substring(backgroundPrefix.length)}` :
-                    f.path.startsWith(floatingPrefix) ? `Floating.ca/${f.path.substring(floatingPrefix.length)}` : null;
+          let rel: string | null = null;
+          if (f.path.startsWith(backgroundPrefix)) {
+            rel = `Background.ca/${f.path.substring(backgroundPrefix.length)}`;
+          } else if (f.path.startsWith(floatingPrefix)) {
+            rel = `Floating.ca/${f.path.substring(floatingPrefix.length)}`;
+          } else {
+            rel = null;
+          }
           if (!rel) continue;
-          f.type === "text" ? outputZip.file(rel, String(f.data)) : outputZip.file(rel, f.data as ArrayBuffer);
+          if (f.type === "text") {
+            outputZip.file(rel, String(f.data));
+          } else {
+            const buf = f.data as ArrayBuffer;
+            outputZip.file(rel, buf);
+          }
         }
       }
 
-      if (loadLicenseText(exportLicense)) outputZip.file("LICENSE.txt", await loadLicenseText(exportLicense) as string);
-      
-      const finalZipBlob = await outputZip.generateAsync({ type: "blob" });
+      const licenseText = await loadLicenseText(exportLicense);
+      if (licenseText) {
+        outputZip.file("LICENSE.txt", licenseText);
+      }
 
-      // FIX: Use Median Bridge for iPad App
-      if (medianDownload(finalZipBlob, `${nameSafe}.ca`)) return true;
+      const finalZipBlob = await outputZip.generateAsync({ type: "blob" });
 
       const url = URL.createObjectURL(finalZipBlob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${nameSafe}.ca`;
+      a.download = `${nameSafe}.zip`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -189,6 +197,11 @@ export function ExportDialog() {
       return true;
     } catch (e) {
       console.error("Export failed", e);
+      toast({
+        title: "Export failed",
+        description: "Failed to export .ca file. Please try again.",
+        variant: "destructive",
+      });
       return false;
     }
   };
@@ -197,45 +210,123 @@ export function ExportDialog() {
     try {
       setExportingTendies(true);
       if (!doc) return false;
+      try {
+        await flushPersist();
+        await cleanupAssets();
+      } catch {}
       const proj = await getProject(doc.meta.id);
-      const baseName = (downloadNameOverride && downloadNameOverride.trim()) || proj?.name || doc.meta.name || "Project";
+      const baseName =
+        (downloadNameOverride && downloadNameOverride.trim()) ||
+        proj?.name ||
+        doc.meta.name ||
+        "Project";
       const nameSafe = baseName.replace(/[^a-z0-9\-_]+/gi, "-");
       const isGyro = doc.meta.gyroEnabled ?? false;
 
-      const templateResponse = await fetch(isGyro ? "/api/templates/gyro-tendies" : "/api/templates/tendies");
+      const templateEndpoint = isGyro
+        ? "/api/templates/gyro-tendies"
+        : "/api/templates/tendies";
+      const templateResponse = await fetch(templateEndpoint, {
+        method: "GET",
+        headers: {
+          Accept: "application/zip",
+        },
+        signal: AbortSignal.timeout(30000),
+      });
+
+      if (!templateResponse.ok) {
+        throw new Error(
+          `Failed to fetch tendies template: ${templateResponse.status} ${templateResponse.statusText}`,
+        );
+      }
+
       const templateArrayBuffer = await templateResponse.arrayBuffer();
+
+      if (templateArrayBuffer.byteLength === 0) {
+        throw new Error("Error with length of tendies file");
+      }
+
       const templateZip = new JSZip();
       await templateZip.loadAsync(templateArrayBuffer);
+
       const outputZip = new JSZip();
 
       for (const [relativePath, file] of Object.entries(templateZip.files)) {
-        if (!file.dir) outputZip.file(relativePath, await file.async("uint8array"));
+        if (!file.dir) {
+          const content = await file.async("uint8array");
+          outputZip.file(relativePath, content);
+        }
       }
-
       const folder = `${proj?.name || doc.meta.name || "Project"}.ca`;
       const allFiles = await listFiles(doc.meta.id, `${folder}/`);
 
-      // Simplified file mapping for brevity
-      const wallpaperPrefix = `${folder}/Wallpaper.ca/`;
-      const backgroundPrefix = `${folder}/Background.ca/`;
-      const floatingPrefix = `${folder}/Floating.ca/`;
-
-      for (const f of allFiles) {
-        let fullPath = "";
-        if (isGyro && f.path.startsWith(wallpaperPrefix)) {
-          fullPath = `descriptors/99990000-0000-0000-0000-000000000000/versions/0/contents/7400.WWDC_2022-390w-844h@3x~iphone.wallpaper/wallpaper.ca/${f.path.substring(wallpaperPrefix.length)}`;
-        } else if (!isGyro && f.path.startsWith(backgroundPrefix)) {
-          fullPath = `descriptors/09E9B685-7456-4856-9C10-47DF26B76C33/versions/1/contents/7400.WWDC_2022-390w-844h@3x~iphone.wallpaper/7400.WWDC_2022_Background-390w-844h@3x~iphone.ca/${f.path.substring(backgroundPrefix.length)}`;
-        } else if (!isGyro && f.path.startsWith(floatingPrefix)) {
-          fullPath = `descriptors/09E9B685-7456-4856-9C10-47DF26B76C33/versions/1/contents/7400.WWDC_2022-390w-844h@3x~iphone.wallpaper/7400.WWDC_2022_Floating-390w-844h@3x~iphone.ca/${f.path.substring(floatingPrefix.length)}`;
+      if (isGyro) {
+        const wallpaperPrefix = `${folder}/Wallpaper.ca/`;
+        const caMap: Array<{ path: string; data: Uint8Array | string }> = [];
+        for (const f of allFiles) {
+          if (f.path.startsWith(wallpaperPrefix)) {
+            caMap.push({
+              path: f.path.substring(wallpaperPrefix.length),
+              data:
+                f.type === "text"
+                  ? String(f.data)
+                  : new Uint8Array(f.data as ArrayBuffer),
+            });
+          }
         }
-        if (fullPath) outputZip.file(fullPath, f.type === "text" ? String(f.data) : new Uint8Array(f.data as ArrayBuffer));
+        const caFolderPath =
+          "descriptors/99990000-0000-0000-0000-000000000000/versions/0/contents/7400.WWDC_2022-390w-844h@3x~iphone.wallpaper/wallpaper.ca";
+        for (const file of caMap) {
+          const fullPath = `${caFolderPath}/${file.path}`;
+          if (typeof file.data === "string") outputZip.file(fullPath, file.data);
+          else outputZip.file(fullPath, file.data);
+        }
+      } else {
+        const backgroundPrefix = `${folder}/Background.ca/`;
+        const floatingPrefix = `${folder}/Floating.ca/`;
+        const caMap: Record<
+          "background" | "floating",
+          Array<{ path: string; data: Uint8Array | string }>
+        > = { background: [], floating: [] };
+        for (const f of allFiles) {
+          if (f.path.startsWith(backgroundPrefix)) {
+            caMap.background.push({
+              path: f.path.substring(backgroundPrefix.length),
+              data:
+                f.type === "text"
+                  ? String(f.data)
+                  : new Uint8Array(f.data as ArrayBuffer),
+            });
+          } else if (f.path.startsWith(floatingPrefix)) {
+            caMap.floating.push({
+              path: f.path.substring(floatingPrefix.length),
+              data:
+                f.type === "text"
+                  ? String(f.data)
+                  : new Uint8Array(f.data as ArrayBuffer),
+            });
+          }
+        }
+        const caKeys = ["background", "floating"] as const;
+        for (const key of caKeys) {
+          const caFolderPath =
+            key === "floating"
+              ? "descriptors/09E9B685-7456-4856-9C10-47DF26B76C33/versions/1/contents/7400.WWDC_2022-390w-844h@3x~iphone.wallpaper/7400.WWDC_2022_Floating-390w-844h@3x~iphone.ca"
+              : "descriptors/09E9B685-7456-4856-9C10-47DF26B76C33/versions/1/contents/7400.WWDC_2022-390w-844h@3x~iphone.wallpaper/7400.WWDC_2022_Background-390w-844h@3x~iphone.ca";
+          for (const file of caMap[key]) {
+            const fullPath = `${caFolderPath}/${file.path}`;
+            if (typeof file.data === "string") outputZip.file(fullPath, file.data);
+            else outputZip.file(fullPath, file.data);
+          }
+        }
+      }
+
+      const licenseText = await loadLicenseText(exportLicense);
+      if (licenseText) {
+        outputZip.file("LICENSE.txt", licenseText);
       }
 
       const finalZipBlob = await outputZip.generateAsync({ type: "blob" });
-
-      // FIX: Use Median Bridge for iPad App
-      if (medianDownload(finalZipBlob, `${nameSafe}.tendies`)) return true;
 
       const url = URL.createObjectURL(finalZipBlob);
       const a = document.createElement("a");
@@ -245,16 +336,25 @@ export function ExportDialog() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
+
+      toast({
+        title: "Export successful",
+        description: `Tendies file "${nameSafe}.tendies" has been downloaded.`,
+      });
       return true;
     } catch (e) {
       console.error("Tendies export failed", e);
+      toast({
+        title: "Export failed",
+        description: "Failed to export tendies file. Please try again.",
+        variant: "destructive",
+      });
       return false;
     } finally {
       setExportingTendies(false);
     }
   };
 
-  // ... (Keep the existing return block exactly as it was)
   return (
     <div>
       <Button
