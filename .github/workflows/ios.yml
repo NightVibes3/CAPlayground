@@ -13,12 +13,9 @@ on:
       - '.github/workflows/ios.yml'
   workflow_dispatch:
 
-env:
-  DEVELOPER_DIR: /Applications/Xcode_15.2.app/Contents/Developer
-
 jobs:
   build:
-    name: Build and Test iOS App
+    name: Build and Test iOS Package
     runs-on: macos-14
     timeout-minutes: 30
 
@@ -29,59 +26,37 @@ jobs:
       - name: Select Xcode version
         run: sudo xcode-select -s /Applications/Xcode_15.2.app
 
-      - name: Show Xcode version
-        run: xcodebuild -version
+      - name: Show Swift version
+        run: swift --version
 
       - name: Cache Swift Package Manager
         uses: actions/cache@v4
         with:
           path: |
-            ~/Library/Developer/Xcode/DerivedData/**/SourcePackages
+            CAPlaygroundiOS/.build
             ~/.swiftpm
-          key: ${{ runner.os }}-spm-${{ hashFiles('CAPlaygroundiOS/**/Package.resolved') }}
+          key: ${{ runner.os }}-spm-${{ hashFiles('CAPlaygroundiOS/Package.resolved') }}
           restore-keys: |
             ${{ runner.os }}-spm-
 
-      - name: Resolve Swift Package Dependencies
+      - name: Resolve Dependencies
         working-directory: CAPlaygroundiOS
-        run: |
-          xcodebuild -resolvePackageDependencies \
-            -project CAPlayground.xcodeproj \
-            -scheme CAPlayground
+        run: swift package resolve
 
-      - name: Build for iOS Simulator
+      - name: Build Package
         working-directory: CAPlaygroundiOS
-        run: |
-          xcodebuild build \
-            -project CAPlayground.xcodeproj \
-            -scheme CAPlayground \
-            -destination 'platform=iOS Simulator,name=iPhone 15 Pro,OS=17.2' \
-            -configuration Debug \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            | xcpretty --color
+        run: swift build -v
 
-      - name: Run Unit Tests
+      - name: Run Tests
         working-directory: CAPlaygroundiOS
-        run: |
-          xcodebuild test \
-            -project CAPlayground.xcodeproj \
-            -scheme CAPlayground \
-            -destination 'platform=iOS Simulator,name=iPhone 15 Pro,OS=17.2' \
-            -configuration Debug \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            | xcpretty --color
+        run: swift test -v
         continue-on-error: true
 
-  archive:
-    name: Archive iOS App
+  build-ios:
+    name: Build for iOS
     runs-on: macos-14
     needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    timeout-minutes: 45
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repository
@@ -90,29 +65,12 @@ jobs:
       - name: Select Xcode version
         run: sudo xcode-select -s /Applications/Xcode_15.2.app
 
-      - name: Resolve Swift Package Dependencies
+      - name: Build for iOS
         working-directory: CAPlaygroundiOS
         run: |
-          xcodebuild -resolvePackageDependencies \
-            -project CAPlayground.xcodeproj \
-            -scheme CAPlayground
-
-      - name: Archive for Release
-        working-directory: CAPlaygroundiOS
-        run: |
-          xcodebuild archive \
-            -project CAPlayground.xcodeproj \
-            -scheme CAPlayground \
-            -archivePath ${{ runner.temp }}/CAPlayground.xcarchive \
-            -destination 'generic/platform=iOS' \
-            -configuration Release \
+          xcodebuild build \
+            -scheme CAPlaygroundCore \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath .build/xcode \
             CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
-
-      - name: Upload Archive Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: CAPlayground-Archive
-          path: ${{ runner.temp }}/CAPlayground.xcarchive
-          retention-days: 7
+            CODE_SIGNING_REQUIRED=NO
