@@ -7,7 +7,6 @@
 
 /// Emitter shape types.
 /// Mirrors: `'point' | 'line' | 'rectangle' | 'cuboid' | 'circle' | 'sphere'`
-import Foundation
 
 /// Emitter mode types.
 /// Mirrors: `'volume' | 'outline' | 'surface'`
@@ -20,6 +19,9 @@ import Foundation
 
 /// A layer that displays particle effects.
 /// Mirrors the TypeScript type: `EmitterLayer`
+
+import Foundation
+
 enum EmitterShape: String, Codable {
     case point
     case line
@@ -82,8 +84,11 @@ struct CAEmitterCell: Codable, Hashable, Identifiable {
     var greenSpeed: CGFloat?
     var blueSpeed: CGFloat?
 
-    // Contents
-    var contentsRect: CGRect?
+    // Contents - using individual values instead of CGRect for Hashable conformance
+    var contentsRectX: CGFloat?
+    var contentsRectY: CGFloat?
+    var contentsRectW: CGFloat?
+    var contentsRectH: CGFloat?
     var contentsScale: CGFloat?
 
     init(
@@ -114,7 +119,10 @@ struct CAEmitterCell: Codable, Hashable, Identifiable {
         redSpeed: CGFloat? = 0,
         greenSpeed: CGFloat? = 0,
         blueSpeed: CGFloat? = 0,
-        contentsRect: CGRect? = nil,
+        contentsRectX: CGFloat? = nil,
+        contentsRectY: CGFloat? = nil,
+        contentsRectW: CGFloat? = nil,
+        contentsRectH: CGFloat? = nil,
         contentsScale: CGFloat? = 1
     ) {
         self.id = id
@@ -144,7 +152,10 @@ struct CAEmitterCell: Codable, Hashable, Identifiable {
         self.redSpeed = redSpeed
         self.greenSpeed = greenSpeed
         self.blueSpeed = blueSpeed
-        self.contentsRect = contentsRect
+        self.contentsRectX = contentsRectX
+        self.contentsRectY = contentsRectY
+        self.contentsRectW = contentsRectW
+        self.contentsRectH = contentsRectH
         self.contentsScale = contentsScale
     }
 }

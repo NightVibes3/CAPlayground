@@ -21,11 +21,8 @@ struct CAMLSerializer {
         transitions: [CAStateTransition]?,
         parallaxGroups: [GyroParallaxDictionary]?
     ) -> String {
-        var xml = """
-            <?xml version="1.0" encoding="UTF-8"?>
-<caml xmlns="http://www.apple.com/CoreAnimation/1.0">
-
-            """
+        var xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+        xml += "<caml xmlns=\"http://www.apple.com/CoreAnimation/1.0\">\n"
 
         // Serialize root layer
         xml += serializeLayer(root, indent: 2)

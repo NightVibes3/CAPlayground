@@ -67,7 +67,7 @@ class ExportService {
     }
 
     private func exportCABundle(project: ProjectMeta, to tempDir: URL) async throws -> URL {
-        let projectName = project.name.sanitizeFilename()
+        let projectName = sanitizeFilename(project.name)
         let sourcePath = "\(projectName).ca"  // This is where FileStorage keeps it normally
 
         // We need to reconstruct the full folder structure in temp
@@ -78,7 +78,7 @@ class ExportService {
         // Note: FileStorage might store things flat or in a structure.
         // Based on previous FileStorageService, it mirrors the structure.
 
-        let files = try await fileStorage.listFiles(projectId: project.id, path: sourcePath)
+        let files = try await fileStorage.listFiles(projectId: project.id, prefix: sourcePath)
 
         for file in files {
             // file.path is relative to project root, e.g. "MyProject.ca/Background.ca/main.caml"
@@ -97,7 +97,9 @@ class ExportService {
 
             try fileManager.createDirectory(at: destFolder, withIntermediateDirectories: true)
 
-            if let data = await fileStorage.readFile(projectId: project.id, path: file.path) {
+            if let data = try? await fileStorage.readBinaryFile(
+                projectId: project.id, path: file.path)
+            {
                 try data.write(to: destUrl)
             }
         }
@@ -125,9 +127,9 @@ class ExportService {
         try ZipUtils.unzip(source: URL(fileURLWithPath: templatePath), destination: workDir)
 
         // 3. Inject CA files
-        let projectName = project.name.sanitizeFilename()
+        let projectName = sanitizeFilename(project.name)
         let sourcePath = "\(projectName).ca"
-        let files = try await fileStorage.listFiles(projectId: project.id, path: sourcePath)
+        let files = try await fileStorage.listFiles(projectId: project.id, prefix: sourcePath)
 
         if isGyro {
             // Gyro Path Mapping
@@ -141,9 +143,11 @@ class ExportService {
             for file in files where file.path.hasPrefix(sourcePrefix) {
                 let relativePath = String(file.path.dropFirst(sourcePrefix.count))
                 let destUrl = targetBase.appendingPathComponent(relativePath)
-                try Utils.ensureDir(for: destUrl)
+                try ExportUtils.ensureDir(for: destUrl)
 
-                if let data = await fileStorage.readFile(projectId: project.id, path: file.path) {
+                if let data = try? await fileStorage.readBinaryFile(
+                    projectId: project.id, path: file.path)
+                {
                     try data.write(to: destUrl)
                 }
             }
@@ -174,8 +178,9 @@ class ExportService {
                 }
 
                 if let dest = destUrl {
-                    try Utils.ensureDir(for: dest)
-                    if let data = await fileStorage.readFile(projectId: project.id, path: file.path)
+                    try ExportUtils.ensureDir(for: dest)
+                    if let data = try? await fileStorage.readBinaryFile(
+                        projectId: project.id, path: file.path)
                     {
                         try data.write(to: dest)
                     }
@@ -190,6 +195,14 @@ class ExportService {
         try ZipUtils.zip(directory: workDir, to: finalParams)
 
         return finalParams
+    }
+
+    // MARK: - Helpers
+
+    private func sanitizeFilename(_ name: String) -> String {
+        // Remove or replace characters that are problematic for filenames
+        let invalidChars = CharacterSet(charactersIn: "/\\:*?\"<>|")
+        return name.components(separatedBy: invalidChars).joined(separator: "_")
     }
 }
 class ZipUtils {
@@ -213,7 +226,7 @@ class ZipUtils {
         print("Unzipping \(source) to \(destination)")
     }
 }
-private class Utils {
+private class ExportUtils {
     static func ensureDir(for fileUrl: URL) throws {
         let folder = fileUrl.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)

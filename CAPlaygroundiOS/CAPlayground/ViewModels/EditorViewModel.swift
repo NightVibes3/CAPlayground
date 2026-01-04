@@ -1,6 +1,6 @@
 /// Main ViewModel for the editor, managing document state and layer operations.
 /// Mirrors the EditorContext from editor-context.tsx
-import Combine
+
 //
 //  EditorViewModel.swift
 //  CAPlayground
@@ -8,11 +8,13 @@ import Combine
 //  Created by CAPlayground iOS Conversion
 //
 
+import Combine
+
 import Foundation
 
-import SwiftUI
-
 // MARK: - Supporting Types
+
+import SwiftUI
 
 @MainActor
 class EditorViewModel: ObservableObject {
@@ -222,10 +224,10 @@ class EditorViewModel: ObservableObject {
             ),
             size: Size(w: 120, h: 40),
             text: "Text Layer",
-            color: "#111827",
-            fontSize: 16,
-            align: .center,
             fontFamily: "SFProText-Regular",
+            fontSize: 16,
+            color: "#111827",
+            align: .center,
             wrapped: 1
         )
 
