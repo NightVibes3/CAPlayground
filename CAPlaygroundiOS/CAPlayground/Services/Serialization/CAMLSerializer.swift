@@ -7,6 +7,7 @@
 
 /// Serializer for converting layer models to CAML (Core Animation Markup Language) format.
 /// Mirrors the serialization logic from serializeCAML.ts
+
 import Foundation
 
 struct CAMLSerializer {

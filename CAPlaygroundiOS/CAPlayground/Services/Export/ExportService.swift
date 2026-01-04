@@ -5,14 +5,12 @@
 //  Created by CAPlayground iOS Conversion
 //
 
-import Foundation
-
-import UIKit
-
 /// Service handling the export of projects to `.ca` bundles or `.tendies` files.
 /// Requires a Zip library (like ZIPFoundation) to be fully functional for .tendies.
 
 // MARK: - Zip Utility Wrapper
+
+import Foundation
 
 enum ExportFormat {
     case caBundle

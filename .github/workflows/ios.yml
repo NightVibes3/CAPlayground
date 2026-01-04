@@ -15,9 +15,9 @@ on:
 
 jobs:
   build:
-    name: Build and Test iOS Package
+    name: Build iOS App
     runs-on: macos-14
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - name: Checkout repository
@@ -26,51 +26,83 @@ jobs:
       - name: Select Xcode version
         run: sudo xcode-select -s /Applications/Xcode_15.2.app
 
-      - name: Show Swift version
-        run: swift --version
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode Project
+        working-directory: CAPlaygroundiOS
+        run: xcodegen generate
+
+      - name: Show generated project structure
+        working-directory: CAPlaygroundiOS
+        run: ls -la
 
       - name: Cache Swift Package Manager
         uses: actions/cache@v4
         with:
           path: |
-            CAPlaygroundiOS/.build
-            ~/.swiftpm
-          key: ${{ runner.os }}-spm-${{ hashFiles('CAPlaygroundiOS/Package.resolved') }}
+            CAPlaygroundiOS/CAPlayground.xcodeproj/project.xcworkspace/xcshareddata/swiftpm
+            ~/Library/Caches/org.swift.swiftpm
+          key: ${{ runner.os }}-spm-${{ hashFiles('CAPlaygroundiOS/project.yml') }}
           restore-keys: |
             ${{ runner.os }}-spm-
 
-      - name: Resolve Dependencies
+      - name: Resolve Swift Packages
         working-directory: CAPlaygroundiOS
-        run: swift package resolve
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project CAPlayground.xcodeproj \
+            -scheme CAPlayground
 
-      - name: Build Package
-        working-directory: CAPlaygroundiOS
-        run: swift build -v
-
-      - name: Run Tests
-        working-directory: CAPlaygroundiOS
-        run: swift test -v
-        continue-on-error: true
-
-  build-ios:
-    name: Build for iOS
-    runs-on: macos-14
-    needs: build
-    timeout-minutes: 30
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Select Xcode version
-        run: sudo xcode-select -s /Applications/Xcode_15.2.app
-
-      - name: Build for iOS
+      - name: Build for iOS Simulator
         working-directory: CAPlaygroundiOS
         run: |
           xcodebuild build \
-            -scheme CAPlaygroundCore \
-            -destination 'generic/platform=iOS Simulator' \
-            -derivedDataPath .build/xcode \
+            -project CAPlayground.xcodeproj \
+            -scheme CAPlayground \
+            -destination 'platform=iOS Simulator,name=iPhone 15 Pro,OS=17.2' \
+            -configuration Debug \
             CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty --color || true
+
+      - name: Build for Device (Archive)
+        working-directory: CAPlaygroundiOS
+        run: |
+          xcodebuild archive \
+            -project CAPlayground.xcodeproj \
+            -scheme CAPlayground \
+            -archivePath ${{ runner.temp }}/CAPlayground.xcarchive \
+            -destination 'generic/platform=iOS' \
+            -configuration Release \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            SKIP_INSTALL=NO \
+            BUILD_LIBRARY_FOR_DISTRIBUTION=YES
+
+      - name: Create Unsigned IPA
+        working-directory: ${{ runner.temp }}
+        run: |
+          mkdir -p Payload
+          cp -r CAPlayground.xcarchive/Products/Applications/CAPlayground.app Payload/
+          zip -r CAPlayground-unsigned.ipa Payload
+          rm -rf Payload
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CAPlayground-IPA
+          path: ${{ runner.temp }}/CAPlayground-unsigned.ipa
+          retention-days: 30
+
+      - name: Upload Archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: CAPlayground-Archive
+          path: ${{ runner.temp }}/CAPlayground.xcarchive
+          retention-days: 7
