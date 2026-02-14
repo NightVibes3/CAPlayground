@@ -1,6 +1,6 @@
 # ![CAPlayground Logo](apps/web/public/icon-dark.png) CAPlayground
 
-Create beautiful animated wallpapers for iOS and iPadOS on any desktop computer.
+Create beautiful animated wallpapers for iOS and iPadOS on any desktop computer or mobile device.
 
 ## Overview
 
